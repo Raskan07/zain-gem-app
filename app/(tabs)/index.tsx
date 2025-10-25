@@ -1,15 +1,25 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import { Box } from '@/components/ui/box';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+
 
 export default function TabOneScreen() {
+  const route = useRouter();
+  const { verified } = useLocalSearchParams();
+
+  useEffect(() => {
+    // If not verified (no query param), redirect to greeting
+    if (verified !== '1') {
+      route.replace('/screens/greeting');
+    }
+  }, [verified]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-    </View>
+   <Box className="bg-primary-500 p-5">
+    <Text className='text-xl'>Hello world</Text>
+   </Box>
   );
 }
 
