@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, Stone } from '@/constants/data';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface StoneCardProps {
   stone: Stone;
@@ -8,6 +8,8 @@ interface StoneCardProps {
 }
 
 export const StoneCard: React.FC<StoneCardProps> = ({ stone, onPress }) => {
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -16,15 +18,24 @@ export const StoneCard: React.FC<StoneCardProps> = ({ stone, onPress }) => {
     >
       <View style={styles.imageContainer}>
         {stone.images && stone.images.length > 0 ? (
-          <Image 
-            source={{ uri: stone.images[0] }} 
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <>
+            <Image 
+              source={{ uri: stone.images[0] }} 
+              style={styles.image}
+              resizeMode="cover"
+              onLoadStart={() => setIsLoading(true)}
+              onLoadEnd={() => setIsLoading(false)}
+            />
+            {isLoading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="small" color="#24F07D" />
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.placeholderImage} />
         )}
-        <View style={[styles.statusBadge, styles[`status_${stone.status.toLowerCase()}`]]}>
+        <View style={[styles.statusBadge, (styles as any)[`status_${stone.status.toLowerCase()}`]]}>
           <Text style={styles.statusText}>{stone.status}</Text>
         </View>
       </View>
@@ -130,5 +141,11 @@ const styles = StyleSheet.create({
     color: '#00D492',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.5)',
   },
 });

@@ -1,12 +1,14 @@
 import { BalanceCard } from '@/components/ui/balance-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { StockGrid } from '@/components/ui/stock-grid';
-import { Stone, StoneCard } from '@/components/ui/stone-card';
+import { StoneCard } from '@/components/ui/stone-card';
 import { StoneDetailsModal } from '@/components/ui/stone-details-modal';
+import { Stone } from '@/constants/data';
 import { stonesCollection } from '@/lib/firebase';
 import { onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+
 
 export default function TabTwoScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,67 +49,68 @@ export default function TabTwoScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        data={filteredStones}
+        keyExtractor={item => item.id ?? item.customId}
+        renderItem={({ item: stone }) => (
+          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+            <StoneCard
+              key={stone.id}
+              stone={stone}
+              onPress={handleStonePress}
+            />
+          </View>
+        )}
+        ListHeaderComponent={
+          <>
+            {/* Balance Card */}
+            <View style={styles.balanceSection}>
+                <BalanceCard
+                  balance={stones.reduce((sum, s) => sum + (s.totalCost || 0), 0).toLocaleString()}
+                  subtitle="Total Investment"
+                />
+            </View>
+
+            {/* Stones Updates */}
+            <View style={styles.gridSection}>
+              <StockGrid
+                totalStones={stones.length}
+                inStock={stones.filter(s => s.status === 'In Stock').length}
+                sold={stones.filter(s => s.status === 'Sold').length}
+                pending={stones.filter(s => s.status === 'Pending').length}
+              />
+            </View>
+
+            {/* Search and Filters */}
+            <View style={styles.listSection}>
+              <View>
+                <Text className="text-white text-[39px]" style={{ fontFamily: 'Orbitron' }}>
+                  Stones
+                </Text>
+              </View>
+              <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
+
+              {/* Status Tabs */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+                {statusTabs.map(tab => (
+                  <Text
+                    key={tab.key}
+                    style={[styles.tab, selectedStatus === tab.key && styles.tabSelected]}
+                    onPress={() => setSelectedStatus(tab.key)}
+                  >
+                    {tab.label}
+                  </Text>
+                ))}
+              </ScrollView>
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          <Text style={{ color: '#fff', textAlign: 'center', marginTop: 16 }}>No stones found.</Text>
+        }
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-      >
-        {/* Balance Card */}
-        <View style={styles.balanceSection}>
-            <BalanceCard
-              balance={stones.reduce((sum, s) => sum + (s.totalCost || 0), 0).toLocaleString()}
-              subtitle="Total Investment"
-            />
-        </View>
-
-        {/* Stones Updates */}
-        <View style={styles.gridSection}>
-          <StockGrid
-            totalStones={stones.length}
-            inStock={stones.filter(s => s.status === 'In Stock').length}
-            sold={stones.filter(s => s.status === 'Sold').length}
-            pending={stones.filter(s => s.status === 'Pending').length}
-          />
-        </View>
-
-        {/* Search and Filters */}
-        <View style={styles.listSection}>
-          <View>
-            <Text className="text-white text-[39px]" style={{ fontFamily: 'Orbitron' }}>
-              Stones
-            </Text>
-          </View>
-          <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
-
-          {/* Status Tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
-            {statusTabs.map(tab => (
-              <Text
-                key={tab.key}
-                style={[styles.tab, selectedStatus === tab.key && styles.tabSelected]}
-                onPress={() => setSelectedStatus(tab.key)}
-              >
-                {tab.label}
-              </Text>
-            ))}
-          </ScrollView>
-
-          {/* Stones List */}
-          <View style={styles.stonesList}>
-            {filteredStones.length === 0 ? (
-              <Text style={{ color: '#fff', textAlign: 'center', marginTop: 16 }}>No stones found.</Text>
-            ) : (
-              filteredStones.map(stone => (
-                <StoneCard
-                  key={stone.id}
-                  stone={stone}
-                  onPress={handleStonePress}
-                />
-              ))
-            )}
-          </View>
-        </View>
-      </ScrollView>
+      />
 
       {/* Stone Details Modal */}
       <StoneDetailsModal

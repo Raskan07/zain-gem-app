@@ -1,7 +1,8 @@
 import { Stone, formatCurrency } from '@/constants/data';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ImageViewerModal } from '../image-viewer-modal';
 
 interface StoneDetailsModalProps {
   stone: Stone | null;
@@ -12,18 +13,21 @@ interface StoneDetailsModalProps {
 export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, visible, onClose }) => {
   if (!stone) return null;
 
-  const DetailRow = ({ label, value }: { label: string; value: string | number }) => (
+  const [isLoading, setIsLoading] = useState(false);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+
+  const DetailRow = ({ label, value, valueStyle }: { label: string; value: string | number; valueStyle?: any }) => (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={[styles.detailValue, valueStyle]}>{value}</Text>
     </View>
   );
 
-  const date  =  stone.createdAt?.toDate().toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric"
-                    });
+  const date = stone.createdAt ? new Date(stone.createdAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  }) : '';
 
   return (
     <Modal
@@ -45,20 +49,38 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
           </View>
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
-              <Image
-                source={{ uri: stone.images[0] || 'https://via.placeholder.com/300x200?text=No+Image' }}
-                style={{ width: '100%', height: 220, borderRadius: 16 }}
-                resizeMode="cover"
+              <TouchableOpacity onPress={() => setIsViewerVisible(true)} activeOpacity={0.9} style={{ width: '100%' }}>
+                <Image
+                  source={{ uri: stone.images[0]}}
+                  style={{ width: '100%', height: 220, borderRadius: 16 }}
+                  resizeMode="cover"
+                  onLoadStart={() => setIsLoading(true)}
+                  onLoadEnd={() => setIsLoading(false)}
+                />
+                {isLoading && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="small" color="#24F07D" />
+                  </View>
+                )}
+              </TouchableOpacity>
+              
+              <ImageViewerModal
+                visible={isViewerVisible}
+                imageUrl={stone.images[0]}
+                onClose={() => setIsViewerVisible(false)}
               />
-              <View style={{ position: 'absolute', bottom: 16, left: 16, borderRadius: 12, padding: 12 ,backgroundColor:
-                        stone.status === 'Sold' ? '#FF4D4F' :
-                        stone.status === 'In Stock' ? '#52C41A' :
-                        stone.status === 'In Process' ? '#FFD700' :
-                        '#ccc', }}>
+
+              <View style={{
+                position: 'absolute', bottom: 16, left: 16, borderRadius: 12, padding: 12, backgroundColor:
+                  stone.status === 'Sold' ? '#FF4D4F' :
+                    stone.status === 'In Stock' ? '#52C41A' :
+                      stone.status === 'In Process' ? '#FFD700' :
+                        '#ccc',
+              }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
                   <Text
                     style={{
-                     color: '#fff',
+                      color: '#fff',
                       fontSize: 14,
                       fontWeight: 'bold',
                     }}
@@ -68,20 +90,15 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
                 </View>
               </View>
             </View>
-           
-
-
-
-
 
             <View style={{ marginBottom: 12 }}>
               <Text style={styles.sectionTitle}>Stone info</Text>
               <DetailRow label="ID" value={stone.customId} />
               <DetailRow label="Name" value={stone.name} />
               <DetailRow label="Weight (Rough)" value={`${stone.weightInRough}ct`} />
-              <DetailRow label="Weight"value={`${stone.weight}ct`} />
-              <DetailRow label="Treatment" value={stone.treatment} />  
-              <DetailRow label="Date" value={date} />               
+              <DetailRow label="Weight" value={`${stone.weight}ct`} />
+              <DetailRow label="Treatment" value={stone.treatment} />
+              <DetailRow label="Date" value={date} />
             </View>
             <View style={{ marginBottom: 12 }}>
               <Text style={styles.sectionTitle}>Costs</Text>
@@ -96,7 +113,9 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
               <Text style={styles.sectionTitle}>Sale Info</Text>
               <DetailRow label="Price to Sell" value={formatCurrency(stone.priceToSell)} />
               <DetailRow label="Sold Price" value={formatCurrency(stone.soldPrice)} />
-              <DetailRow label="Profit/Loss" value={formatCurrency(stone.profitLoss)} />
+              <DetailRow label="Profit/Loss" value={formatCurrency(stone.profitLoss)} valueStyle={{
+                color: stone.profitLoss > 0 ? '#24F07D' : '#FF4D4F'
+              }} />
             </View>
             <TouchableOpacity style={styles.bookButton}>
               <Text style={{ color: '#000', fontSize: 18, fontWeight: '600' }}>Download</Text>
@@ -121,7 +140,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: '80%',
-    flex: 1, 
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -182,5 +201,15 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 12,
     marginTop: 8,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(19, 18, 18, 0.5)',
   },
 });
