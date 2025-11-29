@@ -197,3 +197,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+
+// fix 
+// when flatlist refresh the refetch the data 

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ViewStyle,TextStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import React from 'react';
+import { StyleSheet, Text, TextStyle, ViewStyle , View } from 'react-native';
 
 interface StockCardProps {
   title: string;
@@ -8,6 +9,7 @@ interface StockCardProps {
   iconName: keyof typeof MaterialCommunityIcons.glyphMap;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  gradientColors?: [string, string, ...string[]];
 }
 
 export const StockCard: React.FC<StockCardProps> = ({
@@ -15,19 +17,26 @@ export const StockCard: React.FC<StockCardProps> = ({
   value,
   iconName,
   style,
-  textStyle
+  textStyle,
+  gradientColors
 }) => {
   return (
-    <View style={[styles.container, style]}>
-      <MaterialCommunityIcons 
+    <LinearGradient 
+      colors={gradientColors || ['#1a1a1a', '#000000']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }} style={[styles.container, style]}>
+      <View style={styles.iconContainer}>
+        <MaterialCommunityIcons 
         name={iconName} 
         size={24} 
-        color="#00D492" 
+        color="#fff" 
         style={styles.icon}
       />
+      </View>
+    
       <Text style={[styles.value ,textStyle]}>{value.toLocaleString()}</Text>
       <Text style={styles.title}>{title}</Text>
-    </View>
+    </LinearGradient>
   );
 };
 
@@ -42,7 +51,6 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   icon: {
-    marginBottom: 8,
   },
   value: {
     fontSize: 28,
@@ -51,8 +59,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontFamily: 'sans-serif',
   },
-  title: {
+    title: {
     fontSize: 14,
-    color: '#888888',
+    color: '#fffafaff',
+  },
+    iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backdropFilter: 'blur(10px)', // Works on web, ignored on native
+    marginBottom:10
+  },
+   bgIcon: {
+    position: 'absolute',
+    bottom: -20,
+    right: -20,
+    opacity: 0.5,
   },
 });

@@ -6,6 +6,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ActionButton } from '../action-button';
 import { Card } from '../card';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface BalanceCardProps {
   balance: string;
@@ -25,7 +26,14 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
   const router = useRouter();
 
   return (
-    <Card style={styles.container}>
+  <LinearGradient
+     colors={['#16c48aff', '#05ffb0ff']}
+     start={{ x: 0, y: 0 }}
+     end={{ x: 1, y: 1 }} 
+     style={styles.container}
+     >
+
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} className='border '>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
@@ -41,7 +49,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
       </View>
 
       <View style={styles.content}>
-        <MaterialCommunityIcons name="cards-diamond-outline" size={120} color="black" />
+        <MaterialCommunityIcons name="cards-diamond-outline" size={120} color="#fff" />
         {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         <Text style={styles.balance}>LKR {balance}</Text>
       </View>
@@ -54,12 +62,14 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
              />
          <ActionButton
             title="Reports"
-            backgroundColor='#1FD872'
+            backgroundColor='#fffff/90'
+            style={{borderColor:"#000",borderWidth:1}}
              />
       </View>
-    </Card>
+    </LinearGradient>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -91,14 +101,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#000',
+    color: '#fff',
     opacity: 0.7,
     marginBottom: 20,
   },
   balance: {
     fontSize: 35,
     fontWeight: '700',
-    color: '#000',
+    color: '#fff',
     fontFamily:"Orbitron",
   },
   actionButtons: {
@@ -116,7 +126,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   actionButtonText: {
-    color: '#000',
+    color: '#fff',
     marginTop: 4,
     fontSize: 14,
     fontWeight: '500',

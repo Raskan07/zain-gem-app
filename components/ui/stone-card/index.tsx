@@ -28,7 +28,7 @@ export const StoneCard: React.FC<StoneCardProps> = ({ stone, onPress }) => {
             />
             {isLoading && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="small" color="#24F07D" />
+                <ActivityIndicator size="small" color="#f5f5f5ff" />
               </View>
             )}
           </>

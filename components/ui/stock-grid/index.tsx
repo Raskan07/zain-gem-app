@@ -23,13 +23,15 @@ export const StockGrid: React.FC<StockGridProps> = ({
           value={totalStones}
           iconName="diamond-stone"
           style={StyleSheet.flatten([styles.card, {backgroundColor: '#FFFFFF'}])}
-          textStyle={{color: '#000000'}}
+          textStyle={{color: '#fff'}}
+          gradientColors={['#6366f1', '#8b5cf6']}
         />
         <StockCard
           title="In Stock"
           value={inStock}
           iconName="package-variant"
           style={styles.card}
+          gradientColors={['#10b981', '#059669']}
         />
       </View>
       <View style={styles.row}>
@@ -38,12 +40,14 @@ export const StockGrid: React.FC<StockGridProps> = ({
           value={sold}
           iconName="cash"
           style={styles.card}
+          gradientColors={['#ef4444', '#dc2626']} 
         />
         <StockCard
           title="Pending"
           value={pending}
           iconName="clock-outline"
           style={styles.card}
+          gradientColors={['#f59e0b', '#d97706']} 
         />
       </View>
     </View>

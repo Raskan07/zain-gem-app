@@ -9,6 +9,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
+interface Remainder {
+  id: string;
+  buyerName: string;
+  buyerType: string;
+  createdAt: Timestamp;
+  durationInDays: number;
+  myProfit: number;
+  ownerName: string;
+  partyReceives: number;
+  paymentReceivingDate: Timestamp;
+  receiptImage: string;
+  sellingDate: Timestamp;
+  sellingPrice: number;
+  status: string;
+  stoneCost: number;
+  stoneName: string;
+  stoneOwner: string;
+  stoneWeight: number;
+  updatedAt: Timestamp;
+}
+
 interface DashboardMetrics {
   totalRemainders: number;
   pendingCount: number;
@@ -31,41 +52,70 @@ export default function StonesRemaindersScreen() {
 
   const fetchData = async () => {
     try {
-      const stonesRef = collection(db, 'stones');
-      const snapshot = await getDocs(stonesRef);
+      const remaindersRef = collection(db, 'remainders');
+      const snapshot = await getDocs(remaindersRef);
       
       let totalRemainders = 0;
       let pendingCount = 0;
       let overdueCount = 0;
       let totalValue = 0;
+      let nextPaymentDate: Date | null = null;
       
-      // Mocking overdue logic for now as we don't have explicit due dates
-      // Assuming "Pending" items older than 30 days are overdue
       const now = new Date();
-      const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
       snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const status = data.status;
-        const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date();
+        const data = doc.data() as Omit<Remainder, 'id'>;
+        const paymentDate = data.paymentReceivingDate instanceof Timestamp ? data.paymentReceivingDate.toDate() : null;
+        
+        totalRemainders++;
+        
+        if (data.status === 'pending') {
+          totalValue += (data.sellingPrice || 0);
+          
+          if (paymentDate) {
+            // Check for overdue vs pending
+            if (paymentDate < now) {
+              overdueCount++;
+            } else {
+              pendingCount++;
+            }
 
-        if (status === 'In Stock') {
-          totalRemainders++;
-          totalValue += (parseFloat(data.priceToSell) || 0);
-        } else if (status === 'Pending') {
-          pendingCount++;
-          if (updatedAt < thirtyDaysAgo) {
-            overdueCount++;
+            // Find next payment due (earliest future date)
+            if (paymentDate > now) {
+              if (!nextPaymentDate || paymentDate < nextPaymentDate) {
+                nextPaymentDate = paymentDate;
+              }
+            }
+          } else {
+             // If no date, default to pending? Or ignore? 
+             // Assuming pending if no date is specified, or maybe overdue?
+             // For now, let's count as pending if no date, to be safe.
+             pendingCount++;
           }
         }
       });
+
+      const getRelativeTime = (date: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(date);
+        target.setHours(0, 0, 0, 0);
+        
+        const diffTime = target.getTime() - today.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Tomorrow';
+        return `in ${diffDays} days`;
+      };
 
       setMetrics({
         totalRemainders,
         pendingCount,
         overdueCount,
         totalValue,
-        nextPaymentDue: pendingCount > 0 ? 'Coming Soon' : 'All Clear', // Placeholder
+        nextPaymentDue: nextPaymentDate ? getRelativeTime(nextPaymentDate) : (pendingCount > 0 ? 'Pending' : 'All Clear'),
       });
 
     } catch (error) {
@@ -218,6 +268,7 @@ export default function StonesRemaindersScreen() {
             delay={500}
           />
         </View>
+
         
         <View style={{ height: 100 }} />
       </ScrollView>
