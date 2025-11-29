@@ -5,12 +5,16 @@ import { StoneCard } from '@/components/ui/stone-card';
 import { StoneDetailsModal } from '@/components/ui/stone-details-modal';
 import { Stone } from '@/constants/data';
 import { stonesCollection } from '@/lib/firebase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabTwoScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const statusTabs = [
     { key: 'all', label: 'All Status' },
@@ -22,6 +26,7 @@ export default function TabTwoScreen() {
   const [stones, setStones] = useState<Stone[]>([]);
   const [selectedStone, setSelectedStone] = useState<Stone | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   React.useEffect(() => {
     // Listen for real-time updates
@@ -31,6 +36,15 @@ export default function TabTwoScreen() {
       setStones(data);
     });
     return () => unsubscribe();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    // Since we are using onSnapshot, data is already real-time.
+    // We'll just simulate a refresh delay for UX.
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   }, []);
 
   const filteredStones = React.useMemo(() => {
@@ -48,10 +62,18 @@ export default function TabTwoScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#1a1a1a', '#000000']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
       <FlatList
         data={filteredStones}
         keyExtractor={item => item.id ?? item.customId}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+        }
         renderItem={({ item: stone }) => (
           <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
             <StoneCard
@@ -68,6 +90,7 @@ export default function TabTwoScreen() {
                 <BalanceCard
                   balance={stones.reduce((sum, s) => sum + (s.totalCost || 0), 0).toLocaleString()}
                   subtitle="Total Investment"
+                  onAddPress={() => router.push('/add-stone')}
                 />
             </View>
 
@@ -118,14 +141,13 @@ export default function TabTwoScreen() {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   scrollView: {
     flex: 1,

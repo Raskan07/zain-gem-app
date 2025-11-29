@@ -1,4 +1,3 @@
-
 import Colors from '@/constants/Colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -8,9 +7,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ActionButton } from '../action-button';
 import { Card } from '../card';
 
-
-
-
 interface BalanceCardProps {
   balance: string;
   subtitle?: string;
@@ -18,12 +14,13 @@ interface BalanceCardProps {
   inStock?: number;
   sold?: number;
   pending?: number;
+  onAddPress?: () => void;
 }
 
 export const BalanceCard: React.FC<BalanceCardProps> = ({ 
   balance, 
   subtitle,
-
+  onAddPress,
 }) => {
   const router = useRouter();
 
@@ -34,10 +31,13 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
           <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerIcons}>
-          <View className='p-2 bg-white/40 flex flex-row items-center px-3 gap-2 rounded-full border   '>
-            <AntDesign name="plus" size={18} color="#000000" />
-            <Text className=' text-md text-gray-700  '>Create</Text>
-          </View>        </View>
+          <TouchableOpacity onPress={onAddPress} activeOpacity={0.7}>
+            <View className='p-2 bg-white/40 flex flex-row items-center px-3 gap-2 rounded-full border   '>
+              <AntDesign name="plus" size={18} color="#000000" />
+              <Text className=' text-md text-gray-700  '>Create</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -51,17 +51,12 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
             title="Analytics"
             variant='secondary'
             style={styles.s}
-
-              
              />
          <ActionButton
             title="Reports"
             backgroundColor='#1FD872'
-              
              />
       </View>
-
-
     </Card>
   );
 };
