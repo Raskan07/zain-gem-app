@@ -1,7 +1,8 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,8 +14,8 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 
 export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+    // Catch any errors thrown by the Layout component.
+    ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -22,8 +23,13 @@ export const unstable_settings = {
   initialRouteName: 'screens/greeting',
 };
 
+import { initializeNotifications, registerForPushNotificationsAsync } from '@/lib/notifications';
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Initialize notifications handler
+initializeNotifications();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -40,6 +46,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      registerForPushNotificationsAsync();
+
+      const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data;
+        if (data?.url) {
+          router.push({
+            pathname: data.url as any,
+            params: { remainderId: data.remainderId as string }
+          });
+        }
+      });
+
+      return () => subscription.remove();
     }
   }, [loaded]);
 

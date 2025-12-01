@@ -1,6 +1,12 @@
+import { ImagePlaceholder } from '@/components/image-placeholder';
+import { RemaindersCard } from '@/components/remainders-card';
+import { RemaindersDetailsModal } from '@/components/remainders-details-modal';
+import { SearchBar } from '@/components/ui/search-bar';
 import { db } from '@/lib/firebase';
+import { schedulePaymentNotification } from '@/lib/notifications';
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -42,6 +48,12 @@ export default function StonesRemaindersScreen() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [remaindersList, setRemaindersList] = useState<Remainder[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRemainder, setSelectedRemainder] = useState<Remainder | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const { remainderId } = useLocalSearchParams();
+
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalRemainders: 0,
     pendingCount: 0,
@@ -63,8 +75,13 @@ export default function StonesRemaindersScreen() {
       
       const now = new Date();
 
+      const fetchedRemainders: Remainder[] = [];
+
       snapshot.docs.forEach(doc => {
         const data = doc.data() as Omit<Remainder, 'id'>;
+        const remainderWithId = { ...data, id: doc.id };
+        fetchedRemainders.push(remainderWithId);
+
         const paymentDate = data.paymentReceivingDate instanceof Timestamp ? data.paymentReceivingDate.toDate() : null;
         
         totalRemainders++;
@@ -78,6 +95,15 @@ export default function StonesRemaindersScreen() {
               overdueCount++;
             } else {
               pendingCount++;
+            }
+
+            // Check if payment is due TODAY
+            const isToday = paymentDate.getDate() === now.getDate() &&
+                            paymentDate.getMonth() === now.getMonth() &&
+                            paymentDate.getFullYear() === now.getFullYear();
+
+            if (isToday) {
+               schedulePaymentNotification(data.stoneName, data.buyerName, remainderWithId.id);
             }
 
             // Find next payment due (earliest future date)
@@ -94,6 +120,10 @@ export default function StonesRemaindersScreen() {
           }
         }
       });
+
+      setRemaindersList(fetchedRemainders);
+
+
 
       const getRelativeTime = (date: Date) => {
         const today = new Date();
@@ -129,6 +159,17 @@ export default function StonesRemaindersScreen() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (remainderId && remaindersList.length > 0) {
+      const id = Array.isArray(remainderId) ? remainderId[0] : remainderId;
+      const targetRemainder = remaindersList.find(r => r.id === id);
+      if (targetRemainder) {
+        setSelectedRemainder(targetRemainder);
+        setModalVisible(true);
+      }
+    }
+  }, [remainderId, remaindersList]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -203,9 +244,27 @@ export default function StonesRemaindersScreen() {
           <Text style={styles.greeting}>Hello, Admin</Text>
           <Text style={styles.headerTitle}>Stones Reminders</Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
-          <ImagePlaceholder />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => router.push('/screens/old-archives')}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#555' }}>
+              <MaterialCommunityIcons name="archive-clock" size={20} color="#aaa" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileButton}>
+            <ImagePlaceholder />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={{ paddingHorizontal: 16 }}>
+        <SearchBar 
+          value={searchQuery} 
+          onChangeText={setSearchQuery} 
+          placeholder="Search by stone or buyer..."
+        />
       </View>
 
       <ScrollView 
@@ -269,18 +328,40 @@ export default function StonesRemaindersScreen() {
           />
         </View>
 
+        <Text style={styles.sectionTitle}>All Remainders</Text>
+        
+        <View style={styles.listContainer}>
+          {remaindersList
+            .filter(item => 
+              item.stoneName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.buyerName.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .map((item) => (
+              <RemaindersCard 
+                key={item.id} 
+                data={item} 
+                onPress={() => {
+                  setSelectedRemainder(item);
+                  setModalVisible(true);
+                }} 
+              />
+            ))}
+        </View>
         
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <RemaindersDetailsModal 
+        visible={modalVisible} 
+        onClose={() => setModalVisible(false)} 
+        data={selectedRemainder} 
+      />
     </LinearGradient>
   );
 }
 
-const ImagePlaceholder = () => (
-  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#555' }}>
-    <FontAwesome5 name="plus" size={16} color="#aaa" />
-  </View>
-);
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -380,5 +461,15 @@ const styles = StyleSheet.create({
     bottom: -20,
     right: -20,
     opacity: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  listContainer: {
+    paddingBottom: 20,
   },
 });
