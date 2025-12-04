@@ -79,7 +79,18 @@ export default function StonesRemaindersScreen() {
 
       snapshot.docs.forEach(doc => {
         const data = doc.data() as Omit<Remainder, 'id'>;
-        const remainderWithId = { ...data, id: doc.id };
+        
+        let durationInDays = data.durationInDays;
+        if (durationInDays === undefined && data.sellingDate && data.paymentReceivingDate) {
+          const start = data.sellingDate instanceof Timestamp ? data.sellingDate.toDate() : null;
+          const end = data.paymentReceivingDate instanceof Timestamp ? data.paymentReceivingDate.toDate() : null;
+          
+          if (start && end) {
+            durationInDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+
+        const remainderWithId = { ...data, id: doc.id, durationInDays: durationInDays || 0 };
         fetchedRemainders.push(remainderWithId);
 
         const paymentDate = data.paymentReceivingDate instanceof Timestamp ? data.paymentReceivingDate.toDate() : null;
@@ -253,7 +264,10 @@ export default function StonesRemaindersScreen() {
               <MaterialCommunityIcons name="archive-clock" size={20} color="#aaa" />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => router.push('/add-remainder')}
+          >
             <ImagePlaceholder />
           </TouchableOpacity>
         </View>
@@ -354,6 +368,7 @@ export default function StonesRemaindersScreen() {
       <RemaindersDetailsModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
+        onDataChange={fetchData}
         data={selectedRemainder} 
       />
     </LinearGradient>
