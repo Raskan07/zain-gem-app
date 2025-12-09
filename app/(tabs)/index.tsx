@@ -1,6 +1,7 @@
 import { ActivityDetailModal } from '@/components/activity-detail-modal';
 import { FilterTabs } from '@/components/filter-tabs';
 import { ImagePlaceholder } from '@/components/image-placeholder';
+import { MonthlyActivityGrid } from '@/components/monthly-activity-grid';
 import { RecentItemsList } from '@/components/recent-items-list';
 import { SearchBar } from '@/components/ui/search-bar';
 import { db } from '@/lib/firebase';
@@ -33,9 +34,10 @@ interface RemainderData {
   paymentDate: Date;
   daysLeft: number;
   status: string;
+  sellingDate?: Date; // Added for correct date tracking
 }
 
-interface EnhancedActivityData {
+export interface EnhancedActivityData {
   date: Date;
   dayNumber: number;
   stones: StoneData[];
@@ -118,6 +120,7 @@ export default function HomeScreen() {
           inventoryValue += (data.priceToSell || 0);
         }
 
+        // Stones collection uses createdAt
         const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now());
 
         const stoneData: StoneData & { createdAt: Date } = {
@@ -132,12 +135,17 @@ export default function HomeScreen() {
         allStonesMap.set(doc.id, stoneData);
       });
 
+      // Fetch remainders from both 'remainders' and 'archives' collections
       const remaindersRef = collection(db, 'remainders');
       const remaindersSnapshot = await getDocs(remaindersRef);
       
+      const archivesRef = collection(db, 'archives');
+      const archivesSnapshot = await getDocs(archivesRef);
+      
       let activeRemainders = 0;
-      const allRemaindersMap: Map<string, RemainderData & { createdAt: Date }> = new Map();
+      const allRemaindersMap: Map<string, RemainderData & { createdAt: Date; sellingDate?: Date }> = new Map();
 
+      // Process remainders collection
       remaindersSnapshot.docs.forEach(doc => {
         const data = doc.data();
         
@@ -147,10 +155,13 @@ export default function HomeScreen() {
 
         const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now());
         const paymentDate = data.paymentDate instanceof Timestamp ? data.paymentDate.toDate() : new Date(data.paymentDate);
+        // User wants sellingDate
+        const sellingDate = data.sellingDate instanceof Timestamp ? data.sellingDate.toDate() : undefined;
+        
         const today = new Date();
         const daysLeft = Math.ceil((paymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-        const remainderData: RemainderData & { createdAt: Date } = {
+        const remainderData: RemainderData & { createdAt: Date; sellingDate?: Date } = {
           id: doc.id,
           stoneName: data.stoneName || 'Unnamed',
           buyerName: data.buyerName || 'Unknown',
@@ -159,6 +170,33 @@ export default function HomeScreen() {
           daysLeft,
           status: data.status || 'pending',
           createdAt,
+          sellingDate,
+        };
+        allRemaindersMap.set(doc.id, remainderData);
+      });
+
+      // Process archives collection
+      archivesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+
+        const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt || Date.now());
+        const paymentDate = data.paymentReceivingDate instanceof Timestamp ? data.paymentReceivingDate.toDate() : new Date(data.paymentReceivingDate || data.paymentDate);
+        // User wants sellingDate
+        const sellingDate = data.sellingDate instanceof Timestamp ? data.sellingDate.toDate() : undefined;
+
+        const today = new Date();
+        const daysLeft = Math.ceil((paymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        const remainderData: RemainderData & { createdAt: Date; sellingDate?: Date } = {
+          id: doc.id,
+          stoneName: data.stoneName || 'Unnamed',
+          buyerName: data.buyerName || 'Unknown',
+          sellingPrice: data.sellingPrice || 0,
+          paymentDate,
+          daysLeft,
+          status: 'completed', // Archives are completed
+          createdAt,
+          sellingDate,
         };
         allRemaindersMap.set(doc.id, remainderData);
       });
@@ -214,7 +252,7 @@ export default function HomeScreen() {
 
   const generateMonthlyActivityGrid = (
     allStones: Map<string, StoneData & { createdAt: Date }>,
-    allRemainders: Map<string, RemainderData & { createdAt: Date }>,
+    allRemainders: Map<string, RemainderData & { createdAt: Date; sellingDate?: Date }>,
     date: Date
   ): EnhancedActivityData[] => {
     const grid: EnhancedActivityData[] = [];
@@ -241,12 +279,13 @@ export default function HomeScreen() {
       const currentDate = new Date(year, month, day);
       currentDate.setHours(0, 0, 0, 0);
       
-      // Filter stones created on this day
+      // Filter stones created on this day (Strictly createdAt per user request)
       const dayStones: StoneData[] = [];
       allStones.forEach((stone) => {
-        const stoneDate = new Date(stone.createdAt);
-        stoneDate.setHours(0, 0, 0, 0);
-        if (stoneDate.getTime() === currentDate.getTime()) {
+        const createdDate = new Date(stone.createdAt);
+        createdDate.setHours(0, 0, 0, 0);
+        
+        if (createdDate.getTime() === currentDate.getTime()) {
           dayStones.push({
             id: stone.id,
             name: stone.name,
@@ -258,21 +297,31 @@ export default function HomeScreen() {
         }
       });
       
-      // Filter remainders created on this day
+      // Filter remainders based on SELLING DATE 
       const dayRemainders: RemainderData[] = [];
       allRemainders.forEach((remainder) => {
-        const remainderDate = new Date(remainder.createdAt);
-        remainderDate.setHours(0, 0, 0, 0);
-        if (remainderDate.getTime() === currentDate.getTime()) {
-          dayRemainders.push({
-            id: remainder.id,
-            stoneName: remainder.stoneName,
-            buyerName: remainder.buyerName,
-            sellingPrice: remainder.sellingPrice,
-            paymentDate: remainder.paymentDate,
-            daysLeft: remainder.daysLeft,
-            status: remainder.status,
-          });
+        // User explicitly asked for sellingDate for remainders/archives
+        // If sellingDate is missing, what should we do? 
+        // User said "archives and remainder collection use sellingDate".
+        // If it's missing, it won't show on the calendar as a sale.
+        // I will fallback to createdAt only if sellingDate is absolutely missing to show *something*, 
+        // but primarily rely on sellingDate.
+        
+        const targetDate = remainder.sellingDate ? new Date(remainder.sellingDate) : undefined;
+        
+        if (targetDate) {
+            targetDate.setHours(0, 0, 0, 0);
+            if (targetDate.getTime() === currentDate.getTime()) {
+              dayRemainders.push({
+                id: remainder.id,
+                stoneName: remainder.stoneName,
+                buyerName: remainder.buyerName,
+                sellingPrice: remainder.sellingPrice,
+                paymentDate: remainder.paymentDate,
+                daysLeft: remainder.daysLeft,
+                status: remainder.status,
+              });
+            }
         }
       });
       
@@ -379,112 +428,52 @@ export default function HomeScreen() {
 
   const getFilteredActivityData = () => {
     if (activeFilter === 'stones') {
-      return activityData.map(day => ({
-        ...day,
-        count: day.stones.length,
-        type: 'stone' as const,
-      }));
+      // Only show days that have stones, keep original data structure
+      return activityData.map(day => {
+        if (day.stones.length > 0) {
+          return {
+            ...day,
+            // Keep only stones, clear remainders for this view
+            remainders: [],
+            count: day.stones.length,
+            type: 'stone' as const,
+          };
+        }
+        // Return empty day if no stones
+        return {
+          ...day,
+          stones: [],
+          remainders: [],
+          count: 0,
+          type: 'none' as const,
+        };
+      });
     } else if (activeFilter === 'remainders') {
-      return activityData.map(day => ({
-        ...day,
-        count: day.remainders.length,
-        type: 'remainder' as const,
-      }));
+      // Only show days that have remainders, keep original data structure
+      return activityData.map(day => {
+        if (day.remainders.length > 0) {
+          return {
+            ...day,
+            // Keep only remainders, clear stones for this view
+            stones: [],
+            count: day.remainders.length,
+            type: 'remainder' as const,
+          };
+        }
+        // Return empty day if no remainders
+        return {
+          ...day,
+          stones: [],
+          remainders: [],
+          count: 0,
+          type: 'none' as const,
+        };
+      });
     }
     return activityData;
   };
 
   const filteredActivityData = getFilteredActivityData();
-
-  const MonthlyActivityGrid = () => {
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const cellSize = (width - 60) / 7;
-
-    return (
-      <View style={styles.activityGridContainer}>
-        {/* Month Header */}
-        <View style={styles.monthHeader}>
-          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButton}>
-            <Ionicons name="chevron-back" size={20} color="#fff" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={() => setShowMonthSelector(true)} style={styles.monthTitle}>
-            <Text style={styles.monthTitleText}>{monthName}</Text>
-            <Ionicons name="chevron-down" size={16} color="#888" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.monthNavButton}>
-            <Ionicons name="chevron-forward" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Days of week labels */}
-        <View style={styles.weekLabels}>
-          {daysOfWeek.map((day, i) => (
-            <Text key={i} style={[styles.weekLabel, { width: cellSize }]}>
-              {day.substring(0, 1)}
-            </Text>
-          ))}
-        </View>
-
-        {/* Activity grid */}
-        <View style={styles.gridRows}>
-          {Array.from({ length: Math.ceil(filteredActivityData.length / 7) }).map((_, weekIndex) => (
-            <View key={weekIndex} style={styles.gridRow}>
-              {Array.from({ length: 7 }).map((_, dayIndex) => {
-                const dataIndex = weekIndex * 7 + dayIndex;
-                const activity = filteredActivityData[dataIndex];
-                
-                if (!activity) return <View key={dayIndex} style={{ width: cellSize, height: cellSize }} />;
-
-                const isCurrentMonth = activity.dayNumber > 0;
-                const isToday = activity.date.toDateString() === new Date().toDateString();
-                
-                let bgColor = isCurrentMonth ? '#2a2a2a' : '#1a1a1a';
-                if (activity.count > 0) {
-                  if (activity.type === 'both') {
-                    bgColor = '#FCD34D';
-                  } else if (activity.type === 'stone') {
-                    bgColor = '#10b981';
-                  } else if (activity.type === 'remainder') {
-                    bgColor = '#8b5cf6';
-                  }
-                }
-
-                return (
-                  <TouchableOpacity
-                    key={dayIndex}
-                    onPress={() => isCurrentMonth && handleActivityCellPress(activity)}
-                    activeOpacity={activity.count > 0 ? 0.7 : 1}
-                    style={{ width: cellSize, height: cellSize, padding: 2 }}
-                  >
-                    <View
-                      style={[
-                        styles.gridCell,
-                        { backgroundColor: bgColor },
-                        isToday && styles.todayCell,
-                      ]}
-                    >
-                      {isCurrentMonth && (
-                        <Text style={[
-                          styles.dayNumber,
-                          activity.count > 0 && styles.dayNumberActive,
-                          isToday && styles.dayNumberToday,
-                        ]}>
-                          {activity.dayNumber}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
 
   return (
     <LinearGradient 
@@ -556,7 +545,13 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <MonthlyActivityGrid />
+          <MonthlyActivityGrid 
+            data={filteredActivityData}
+            selectedDate={selectedDate}
+            onNavigateMonth={navigateMonth}
+            onShowMonthSelector={() => setShowMonthSelector(true)}
+            onActivityPress={handleActivityCellPress}
+          />
 
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.doneButton} onPress={() => router.push('/two')}>
@@ -676,7 +671,7 @@ export default function HomeScreen() {
               </View>
             </LinearGradient>
           </TouchableOpacity>
-
+          
           <TouchableOpacity 
             style={styles.actionCard}
             onPress={() => router.push('/add-remainder')}
@@ -758,36 +753,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   dateText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 12,
   },
   headerRight: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   iconButton: {
     padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 32,
   },
   activityCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    margin: 16,
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 24,
   },
   activityHeader: {
     marginBottom: 20,
@@ -799,9 +795,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   activityTitle: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#fff',
   },
   activitySubtitle: {
     color: '#888',
@@ -809,166 +805,99 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-    paddingVertical: 16,
-    backgroundColor: '#0a0a0a',
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 16,
+    borderRadius: 16,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    color: '#fff',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#fff',
     marginBottom: 4,
   },
   statLabel: {
-    color: '#888',
     fontSize: 12,
-  },
-  activityGridContainer: {
-    marginBottom: 20,
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  monthNavButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-  },
-  monthTitleText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  weekLabels: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  weekLabel: {
     color: '#888',
-    fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  gridRows: {
-    gap: 3,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  gridCell: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  todayCell: {
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  dayNumber: {
-    color: '#666',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dayNumberActive: {
-    color: '#fff',
-  },
-  dayNumberToday: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 20,
   },
   doneButton: {
+    flex: 3, 
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  noteButton: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     paddingVertical: 12,
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
-  },
-  noteButton: {
-    backgroundColor: '#2a2a2a',
-    padding: 12,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 50,
+    fontSize: 14,
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    padding: 16,
     gap: 12,
-    paddingHorizontal: 16,
-    marginBottom: 20,
   },
   metricCard: {
     width: (width - 44) / 2,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
+    height: 120,
   },
   metricGradient: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
+    flex: 1,
+    padding: 16,
+    justifyContent: 'space-between',
   },
   metricValue: {
-    color: '#fff',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
   },
   metricLabel: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
     fontWeight: '500',
   },
   quickActions: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
+    padding: 16,
+    paddingTop: 0,
   },
   sectionTitle: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 16,
+    color: '#fff',
+    marginBottom: 12,
   },
   actionCard: {
+    marginBottom: 12,
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 12,
   },
   actionCardGradient: {
     padding: 16,
@@ -976,27 +905,27 @@ const styles = StyleSheet.create({
   actionCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   actionIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actionTextContainer: {
     flex: 1,
   },
   actionTitle: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 2,
+    color: '#fff',
+    marginBottom: 4,
   },
   actionSubtitle: {
+    fontSize: 13,
     color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
   },
 });

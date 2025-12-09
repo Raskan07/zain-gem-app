@@ -1,9 +1,14 @@
+import { Stone } from '@/constants/data';
+import { db } from '@/lib/firebase';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { RemaindersDetailsModal } from '../remainders-details-modal';
+import { StoneDetailsModal } from '../ui/stone-details-modal';
 
 interface ActivityItem {
   id: string;
@@ -27,6 +32,10 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   remainders,
 }) => {
   const router = useRouter();
+  const [selectedStone, setSelectedStone] = useState<Stone | null>(null);
+  const [selectedRemainder, setSelectedRemainder] = useState<any | null>(null);
+  const [showStoneModal, setShowStoneModal] = useState(false);
+  const [showRemainderModal, setShowRemainderModal] = useState(false);
 
   const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = { 
@@ -36,6 +45,32 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
       day: 'numeric' 
     };
     return date.toLocaleDateString('en-US', options);
+  };
+
+  const handleStonePress = async (stoneId: string) => {
+    try {
+      const stoneDoc = await getDoc(doc(db, 'stones', stoneId));
+      if (stoneDoc.exists()) {
+        const stoneData = { id: stoneDoc.id, ...stoneDoc.data() } as Stone;
+        setSelectedStone(stoneData);
+        setShowStoneModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching stone:', error);
+    }
+  };
+
+  const handleRemainderPress = async (remainderId: string) => {
+    try {
+      const remainderDoc = await getDoc(doc(db, 'remainders', remainderId));
+      if (remainderDoc.exists()) {
+        const remainderData = { id: remainderDoc.id, ...remainderDoc.data() };
+        setSelectedRemainder(remainderData);
+        setShowRemainderModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching remainder:', error);
+    }
   };
 
   return (
@@ -85,19 +120,24 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   </View>
                   
                   {stones.map((stone, index) => (
-                    <Animated.View 
-                      key={stone.id} 
-                      entering={FadeIn.delay(150 + index * 50)}
-                      style={styles.itemCard}
+                    <TouchableOpacity
+                      key={stone.id}
+                      onPress={() => handleStonePress(stone.id)}
+                      activeOpacity={0.7}
                     >
-                      <View style={styles.itemIcon}>
-                        <MaterialCommunityIcons name="diamond-stone" size={20} color="#10b981" />
-                      </View>
-                      <Text style={styles.itemName}>{stone.name}</Text>
-                      <TouchableOpacity style={styles.itemArrow}>
-                        <Ionicons name="chevron-forward" size={20} color="#666" />
-                      </TouchableOpacity>
-                    </Animated.View>
+                      <Animated.View 
+                        entering={FadeIn.delay(150 + index * 50)}
+                        style={styles.itemCard}
+                      >
+                        <View style={styles.itemIcon}>
+                          <MaterialCommunityIcons name="diamond-stone" size={20} color="#10b981" />
+                        </View>
+                        <Text style={styles.itemName}>{stone.name}</Text>
+                        <TouchableOpacity style={styles.itemArrow}>
+                          <Ionicons name="chevron-forward" size={20} color="#666" />
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </TouchableOpacity>
                   ))}
                 </Animated.View>
               )}
@@ -119,19 +159,24 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   </View>
                   
                   {remainders.map((remainder, index) => (
-                    <Animated.View 
-                      key={remainder.id} 
-                      entering={FadeIn.delay(250 + index * 50)}
-                      style={styles.itemCard}
+                    <TouchableOpacity
+                      key={remainder.id}
+                      onPress={() => handleRemainderPress(remainder.id)}
+                      activeOpacity={0.7}
                     >
-                      <View style={styles.itemIcon}>
-                        <MaterialCommunityIcons name="clock-outline" size={20} color="#8b5cf6" />
-                      </View>
-                      <Text style={styles.itemName}>{remainder.name}</Text>
-                      <TouchableOpacity style={styles.itemArrow}>
-                        <Ionicons name="chevron-forward" size={20} color="#666" />
-                      </TouchableOpacity>
-                    </Animated.View>
+                      <Animated.View 
+                        entering={FadeIn.delay(250 + index * 50)}
+                        style={styles.itemCard}
+                      >
+                        <View style={styles.itemIcon}>
+                          <MaterialCommunityIcons name="clock-outline" size={20} color="#8b5cf6" />
+                        </View>
+                        <Text style={styles.itemName}>{remainder.name}</Text>
+                        <TouchableOpacity style={styles.itemArrow}>
+                          <Ionicons name="chevron-forward" size={20} color="#666" />
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </TouchableOpacity>
                   ))}
                 </Animated.View>
               )}
@@ -186,6 +231,20 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
           </LinearGradient>
         </Animated.View>
       </View>
+
+      {/* Stone Details Modal */}
+      <StoneDetailsModal
+        stone={selectedStone}
+        visible={showStoneModal}
+        onClose={() => setShowStoneModal(false)}
+      />
+
+      {/* Remainder Details Modal */}
+      <RemaindersDetailsModal
+        data={selectedRemainder}
+        visible={showRemainderModal}
+        onClose={() => setShowRemainderModal(false)}
+      />
     </Modal>
   );
 };
