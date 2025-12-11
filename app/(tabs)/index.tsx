@@ -790,6 +790,31 @@ export default function HomeScreen() {
               </View>
             </LinearGradient>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/month-analytics')}
+          >
+            <LinearGradient
+              colors={['#ec4899', '#db2777', '#be185d']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.actionCardGradient}
+            >
+              <View style={styles.actionCardContent}>
+                <View style={styles.actionIconContainer}>
+                  <MaterialCommunityIcons name="chart-bar" size={28} color="#fff" />
+                </View>
+                <View style={styles.actionTextContainer}>
+                  <Text style={styles.actionTitle}>Month Analytics</Text>
+                  <Text style={styles.actionSubtitle}>View monthly performance</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.7)" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(700).springify()}>
