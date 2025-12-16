@@ -19,6 +19,8 @@ export interface Stone {
   images: string[];
   createdAt: string;
   updatedAt: string;
+  notes?: string;
+  purchaseDate?: string;
 }
 
 export const stones: Stone[] = [

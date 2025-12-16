@@ -1,6 +1,8 @@
+import { SelectionModal } from '@/components/ui/selection-modal';
 import { db, storage } from '@/lib/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, getDocs, limit, orderBy, query, Timestamp } from 'firebase/firestore';
@@ -20,7 +22,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
 
 const STONE_NAMES = [
   "Sapphire", "Spinel", "Ruby", "TSV", "Mahange", "Crysoberal", 
@@ -39,6 +40,7 @@ export default function AddStoneScreen() {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState('');
   const [weightInRough, setWeightInRough] = useState('');
+  const [notes, setNotes] = useState('');
   
   // Costs
   const [stoneCost, setStoneCost] = useState('');
@@ -54,9 +56,15 @@ export default function AddStoneScreen() {
   // Dropdowns
   const [status, setStatus] = useState('In Stock');
   const [treatment, setTreatment] = useState('Natural');
-  const [isFocusName, setIsFocusName] = useState(false);
-  const [isFocusStatus, setIsFocusStatus] = useState(false);
-  const [isFocusTreatment, setIsFocusTreatment] = useState(false);
+
+  // Date
+  const [purchaseDate, setPurchaseDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Modal Visibility State
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   
   // Images
   const [images, setImages] = useState<string[]>([]);
@@ -103,6 +111,12 @@ export default function AddStoneScreen() {
     const newImages = [...images];
     newImages.splice(index, 1);
     setImages(newImages);
+  };
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || purchaseDate;
+    setShowDatePicker(Platform.OS === 'ios');
+    setPurchaseDate(currentDate);
   };
 
   const uploadImagesToFirebase = async () => {
@@ -187,6 +201,8 @@ export default function AddStoneScreen() {
         images: imageUrls,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        notes: notes,
+        purchaseDate: Timestamp.fromDate(purchaseDate),
       };
 
       // 4. Save to Firestore
@@ -228,44 +244,18 @@ export default function AddStoneScreen() {
           
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Name</Text>
-            <Dropdown
-              style={[styles.dropdown, isFocusName && { borderColor: 'blue' }]}
-              placeholderStyle={styles.placeholderStyle}
-              selectedTextStyle={styles.selectedTextStyle}
-              inputSearchStyle={styles.inputSearchStyle}
-              iconStyle={styles.iconStyle}
-              containerStyle={styles.dropdownContainer}
-              itemTextStyle={styles.itemTextStyle}
-              activeColor="#333"
-              data={STONE_NAMES.map(opt => ({ label: opt, value: opt }))}
-              search
-              maxHeight={300}
-              labelField="label"
-              valueField="value"
-              placeholder={!isFocusName ? 'Select Stone Name' : '...'}
-              searchPlaceholder="Search..."
-              mode="modal"
-              value={name}
-              onFocus={() => setIsFocusName(true)}
-              onBlur={() => setIsFocusName(false)}
-              onChange={item => {
-                setName(item.value);
-                setIsFocusName(false);
-              }}
-              renderLeftIcon={() => (
-                <AntDesign
-                  style={styles.icon}
-                  color={isFocusName ? 'blue' : 'black'}
-                  name="safety"
-                  size={20}
-                />
-              )}
-              renderItem={(item) => (
-                <View style={styles.dropdownItem}>
-                  <Text style={styles.dropdownItemText}>{item.label}</Text>
-                </View>
-              )}
-            />
+            <TouchableOpacity 
+              style={styles.dropdownTrigger}
+              onPress={() => setShowNameModal(true)}
+            >
+               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                 <AntDesign name="safety" size={20} color={name ? '#24F07D' : '#666'} style={{ marginRight: 10 }} />
+                 <Text style={[styles.dropdownText, !name && styles.placeholderText]}>
+                   {name || 'Select Stone Name'}
+                 </Text>
+               </View>
+               <MaterialCommunityIcons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.row}>
@@ -277,92 +267,64 @@ export default function AddStoneScreen() {
             </View>
           </View>
 
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Notes</Text>
+            <TextInput
+              style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Enter details about the stone..."
+              placeholderTextColor="#666"
+              multiline
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Purchase Date</Text>
+            <TouchableOpacity 
+              style={styles.dropdownTrigger}
+              onPress={() => setShowDatePicker(true)}
+            >
+               <Text style={styles.dropdownText}>
+                 {purchaseDate.toLocaleDateString()}
+               </Text>
+               <MaterialCommunityIcons name="calendar" size={20} color="#666" />
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                testID="dateTimePicker"
+                value={purchaseDate}
+                mode="date"
+                is24Hour={true}
+                onChange={onDateChange}
+              />
+            )}
+          </View>
+
           {/* Dropdowns */}
           <View style={styles.row}>
              <View style={styles.halfInput}>
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Status</Text>
-                  <Dropdown
-                    style={[styles.dropdown, isFocusStatus && { borderColor: 'blue' }]}
-                    placeholderStyle={styles.placeholderStyle}
-                    selectedTextStyle={styles.selectedTextStyle}
-                    inputSearchStyle={styles.inputSearchStyle}
-                    iconStyle={styles.iconStyle}
-                    containerStyle={styles.dropdownContainer}
-                    itemTextStyle={styles.itemTextStyle}
-                    activeColor="#333"
-                    data={STATUS_OPTIONS.map(opt => ({ label: opt, value: opt }))}
-                    search
-                    maxHeight={300}
-                    labelField="label"
-                    valueField="value"
-                    placeholder={!isFocusStatus ? 'Select Status' : '...'}
-                    searchPlaceholder="Search..."
-                    mode="modal"
-                    value={status}
-                    onFocus={() => setIsFocusStatus(true)}
-                    onBlur={() => setIsFocusStatus(false)}
-                    onChange={item => {
-                      setStatus(item.value);
-                      setIsFocusStatus(false);
-                    }}
-                    renderLeftIcon={() => (
-                      <AntDesign
-                        style={styles.icon}
-                        color={isFocusStatus ? 'blue' : 'black'}
-                        name="safety"
-                        size={20}
-                      />
-                    )}
-                    renderItem={(item) => (
-                      <View style={styles.dropdownItem}>
-                        <Text style={styles.dropdownItemText}>{item.label}</Text>
-                      </View>
-                    )}
-                  />
+                  <TouchableOpacity 
+                    style={styles.dropdownTrigger}
+                    onPress={() => setShowStatusModal(true)}
+                  >
+                     <Text style={styles.dropdownText}>{status}</Text>
+                     <MaterialCommunityIcons name="chevron-down" size={20} color="#666" />
+                  </TouchableOpacity>
                 </View>
              </View>
              <View style={styles.halfInput}>
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Treatment</Text>
-                  <Dropdown
-                    style={[styles.dropdown, isFocusTreatment && { borderColor: 'blue' }]}
-                    placeholderStyle={styles.placeholderStyle}
-                    selectedTextStyle={styles.selectedTextStyle}
-                    inputSearchStyle={styles.inputSearchStyle}
-                    iconStyle={styles.iconStyle}
-                    containerStyle={styles.dropdownContainer}
-                    itemTextStyle={styles.itemTextStyle}
-                    activeColor="#333"
-                    data={TREATMENT_OPTIONS.map(opt => ({ label: opt, value: opt }))}
-                    search
-                    maxHeight={300}
-                    labelField="label"
-                    valueField="value"
-                    placeholder={!isFocusTreatment ? 'Select Treatment' : '...'}
-                    searchPlaceholder="Search..."
-                    mode="modal"
-                    value={treatment}
-                    onFocus={() => setIsFocusTreatment(true)}
-                    onBlur={() => setIsFocusTreatment(false)}
-                    onChange={item => {
-                      setTreatment(item.value);
-                      setIsFocusTreatment(false);
-                    }}
-                    renderLeftIcon={() => (
-                      <AntDesign
-                        style={styles.icon}
-                        color={isFocusTreatment ? 'blue' : 'black'}
-                        name="safety"
-                        size={20}
-                      />
-                    )}
-                    renderItem={(item) => (
-                      <View style={styles.dropdownItem}>
-                        <Text style={styles.dropdownItemText}>{item.label}</Text>
-                      </View>
-                    )}
-                  />
+                  <TouchableOpacity 
+                    style={styles.dropdownTrigger}
+                    onPress={() => setShowTreatmentModal(true)}
+                  >
+                     <Text style={styles.dropdownText}>{treatment}</Text>
+                     <MaterialCommunityIcons name="chevron-down" size={20} color="#666" />
+                  </TouchableOpacity>
                 </View>
              </View>
           </View>
@@ -439,6 +401,35 @@ export default function AddStoneScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Render Modals */}
+      <SelectionModal
+        visible={showNameModal}
+        title="Select Stone Name"
+        data={STONE_NAMES.map(s => ({ label: s, value: s }))}
+        onClose={() => setShowNameModal(false)}
+        onSelect={(item) => setName(item.value)}
+        selectedValue={name}
+      />
+      
+      <SelectionModal
+        visible={showStatusModal}
+        title="Select Status"
+        data={STATUS_OPTIONS.map(s => ({ label: s, value: s }))}
+        onClose={() => setShowStatusModal(false)}
+        onSelect={(item) => setStatus(item.value)}
+        selectedValue={status}
+      />
+
+      <SelectionModal
+        visible={showTreatmentModal}
+        title="Select Treatment"
+        data={TREATMENT_OPTIONS.map(s => ({ label: s, value: s }))}
+        onClose={() => setShowTreatmentModal(false)}
+        onSelect={(item) => setTreatment(item.value)}
+        selectedValue={treatment}
+      />
+
     </View>
   );
 }

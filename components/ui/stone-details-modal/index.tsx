@@ -29,6 +29,12 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
     day: "numeric"
   }) : '';
 
+  const purchaseDate = stone.purchaseDate ? new Date(stone.purchaseDate).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  }) : '';
+
   return (
     <Modal
       visible={visible}
@@ -99,6 +105,15 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
               <DetailRow label="Weight" value={`${stone.weight}ct`} />
               <DetailRow label="Treatment" value={stone.treatment} />
               <DetailRow label="Date" value={date} />
+              <DetailRow label="Purchase Date" value={purchaseDate} />
+              {stone.notes ? (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.detailLabel}>Notes</Text>
+                  <Text style={[styles.detailValue, { textAlign: 'left', marginTop: 4, color: '#ccc' }]}>
+                    {stone.notes}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <View style={{ marginBottom: 12 }}>
               <Text style={styles.sectionTitle}>Costs</Text>
