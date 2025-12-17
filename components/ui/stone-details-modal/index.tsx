@@ -23,17 +23,31 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
     </View>
   );
 
-  const date = stone.createdAt ? new Date(stone.createdAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  }) : '';
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return '';
+    
+    let date: Date;
+    
+    // Handle Firestore Timestamp
+    if (dateValue?.toDate) {
+      date = dateValue.toDate();
+    } else if (dateValue?.seconds) {
+      date = new Date(dateValue.seconds * 1000);
+    } else {
+      date = new Date(dateValue);
+    }
 
-  const purchaseDate = stone.purchaseDate ? new Date(stone.purchaseDate).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  }) : '';
+    if (isNaN(date.getTime())) return 'Invalid Date';
+
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  };
+
+  const date = formatDate(stone.createdAt);
+  const purchaseDate = formatDate(stone.purchaseDate);
 
   return (
     <Modal
