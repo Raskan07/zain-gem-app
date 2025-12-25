@@ -8,17 +8,17 @@ import { addDoc, collection, getDocs, query, Timestamp, where } from 'firebase/f
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 
@@ -45,6 +45,7 @@ export default function AddRemainderScreen() {
   const [stoneCost, setStoneCost] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [partyReceives, setPartyReceives] = useState('0');
+  const [profit, setProfit] = useState('');
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
 
   // Dates
@@ -122,6 +123,10 @@ export default function AddRemainderScreen() {
     return sell - cost - party;
   };
 
+  React.useEffect(() => {
+    setProfit(calculateProfit().toString());
+  }, [sellingPrice, stoneCost, partyReceives]);
+
   const handleSubmit = async () => {
     if (!stoneName || !sellingPrice) {
       Alert.alert('Error', 'Please fill in all required fields');
@@ -142,7 +147,7 @@ export default function AddRemainderScreen() {
         buyerType: buyerType,
         createdAt: Timestamp.now(),
         durationInDays: durationInDays > 0 ? durationInDays : 0,
-        myProfit: calculateProfit(),
+        myProfit: parseFloat(profit) || 0,
         ownerName: ownership === 'thirdParty' ? ownerName : '',
         partyReceives: parseFloat(partyReceives) || 0,
         paymentReceivingDate: Timestamp.fromDate(paymentDate),
@@ -361,12 +366,7 @@ export default function AddRemainderScreen() {
               placeholderTextColor="#666"
             />
           </View>
-          <View style={styles.summaryContainer}>
-            <Text style={styles.summaryLabel}>Estimated Profit</Text>
-            <Text style={[styles.summaryValue, { color: calculateProfit() >= 0 ? '#10b981' : '#ef4444' }]}>
-              LKR {calculateProfit().toLocaleString()}
-            </Text>
-          </View>
+         
         </View>
 
         {/* Dates */}

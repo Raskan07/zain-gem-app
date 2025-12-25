@@ -4,23 +4,23 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { addDoc, collection, getDocs, limit, orderBy, query, Timestamp } from 'firebase/firestore';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, Timestamp, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  KeyboardTypeOptions,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    KeyboardTypeOptions,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const STONE_NAMES = [
@@ -34,6 +34,10 @@ const TREATMENT_OPTIONS = ["Natural", "Heat", "Electric"];
 
 export default function AddStoneScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { stoneId } = params;
+  const isEditing = !!stoneId;
+
   const [loading, setLoading] = useState(false);
   
   // Form State
@@ -60,6 +64,58 @@ export default function AddStoneScreen() {
   // Date
   const [purchaseDate, setPurchaseDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  useEffect(() => {
+    if (stoneId) {
+      fetchStoneData();
+    }
+  }, [stoneId]);
+
+  const fetchStoneData = async () => {
+    try {
+      setLoading(true);
+      const docRef = doc(db, "stones", stoneId as string);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setName(data.name || '');
+        setWeight(data.weight?.toString() || '');
+        setWeightInRough(data.weightInRough?.toString() || '');
+        setNotes(data.notes || '');
+        
+        setStoneCost(data.stoneCost?.toString() || '');
+        setCuttingCost(data.cuttingCost?.toString() || '');
+        setPolishCost(data.polishCost?.toString() || '');
+        setTreatmentCost(data.treatmentCost?.toString() || '');
+        setOtherCost(data.otherCost?.toString() || '');
+        
+        setPriceToSell(data.priceToSell?.toString() || '');
+        setSoldPrice(data.soldPrice?.toString() || '');
+        
+        setStatus(data.status || 'In Stock');
+        setTreatment(data.treatment || 'Natural');
+        
+        if (data.images) setImages(data.images);
+        
+        if (data.purchaseDate) {
+           // Handle Firestore Timestamp or serialized string
+           const pDate = data.purchaseDate.toDate ? data.purchaseDate.toDate() : new Date(data.purchaseDate);
+           if (!isNaN(pDate.getTime())) {
+             setPurchaseDate(pDate);
+           }
+        }
+      } else {
+        Alert.alert("Error", "Stone not found");
+        router.back();
+      }
+    } catch (error) {
+      console.error("Error fetching stone data:", error);
+      Alert.alert("Error", "Failed to lead stone data");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Modal Visibility State
   const [showNameModal, setShowNameModal] = useState(false);
@@ -177,40 +233,65 @@ export default function AddStoneScreen() {
         setUploading(false);
       }
 
-      // 2. Generate ID
-      const { customId, customIdNum } = await generateCustomId();
-
-      // 3. Create Stone Object
-      const newStone = {
-        customId,
-        customIdNum,
-        name,
-        weight: parseFloat(weight) || 0,
-        weightInRough: parseFloat(weightInRough) || 0,
-        stoneCost: parseFloat(stoneCost) || 0,
-        cuttingCost: parseFloat(cuttingCost) || 0,
-        polishCost: parseFloat(polishCost) || 0,
-        treatmentCost: parseFloat(treatmentCost) || 0,
-        otherCost: parseFloat(otherCost) || 0,
-        totalCost,
-        priceToSell: parseFloat(priceToSell) || 0,
-        soldPrice: parseFloat(soldPrice) || 0,
-        profitLoss,
-        status,
-        treatment,
-        images: imageUrls,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        notes: notes,
-        purchaseDate: Timestamp.fromDate(purchaseDate),
-      };
-
       // 4. Save to Firestore
-      await addDoc(collection(db, "stones"), newStone);
+      if (isEditing) {
+        const stoneRef = doc(db, "stones", stoneId as string);
+        await updateDoc(stoneRef, {
+          name,
+          weight: parseFloat(weight) || 0,
+          weightInRough: parseFloat(weightInRough) || 0,
+          stoneCost: parseFloat(stoneCost) || 0,
+          cuttingCost: parseFloat(cuttingCost) || 0,
+          polishCost: parseFloat(polishCost) || 0,
+          treatmentCost: parseFloat(treatmentCost) || 0,
+          otherCost: parseFloat(otherCost) || 0,
+          totalCost,
+          priceToSell: parseFloat(priceToSell) || 0,
+          soldPrice: parseFloat(soldPrice) || 0,
+          profitLoss,
+          status,
+          treatment,
+          images: imageUrls.length > 0 ? [...images, ...imageUrls] : images, // this might need refinement if images is mixed
+          updatedAt: Timestamp.now(),
+          notes: notes,
+          purchaseDate: Timestamp.fromDate(purchaseDate),
+        });
+        Alert.alert("Success", "Stone updated successfully!", [
+            { text: "OK", onPress: () => router.back() }
+        ]);
+      } else {
+          // 2. Generate ID (only for new)
+          const { customId, customIdNum } = await generateCustomId();
 
-      Alert.alert("Success", "Stone added successfully!", [
-        { text: "OK", onPress: () => router.back() }
-      ]);
+          const newStone = {
+            customId,
+            customIdNum,
+            name,
+            weight: parseFloat(weight) || 0,
+            weightInRough: parseFloat(weightInRough) || 0,
+            stoneCost: parseFloat(stoneCost) || 0,
+            cuttingCost: parseFloat(cuttingCost) || 0,
+            polishCost: parseFloat(polishCost) || 0,
+            treatmentCost: parseFloat(treatmentCost) || 0,
+            otherCost: parseFloat(otherCost) || 0,
+            totalCost,
+            priceToSell: parseFloat(priceToSell) || 0,
+            soldPrice: parseFloat(soldPrice) || 0,
+            profitLoss,
+            status,
+            treatment,
+            images: imageUrls,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+            notes: notes,
+            purchaseDate: Timestamp.fromDate(purchaseDate),
+          };
+          await addDoc(collection(db, "stones"), newStone);
+
+          Alert.alert("Success", "Stone added successfully!", [
+            { text: "OK", onPress: () => router.back() }
+          ]);
+      }
     } catch (error) {
       console.error("Error adding stone: ", error);
       Alert.alert("Error", "Failed to add stone. Please try again.");
@@ -225,7 +306,7 @@ export default function AddStoneScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add New Stone</Text>
+        <Text style={styles.headerTitle}>{isEditing ? "Edit Stone" : "Add New Stone"}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -394,7 +475,7 @@ export default function AddStoneScreen() {
             {loading ? (
               <ActivityIndicator color="#000" />
             ) : (
-              <Text style={styles.submitButtonText}>Save Stone</Text>
+              <Text style={styles.submitButtonText}>{isEditing ? "Update Stone" : "Save Stone"}</Text>
             )}
           </TouchableOpacity>
           

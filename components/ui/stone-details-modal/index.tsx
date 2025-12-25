@@ -1,7 +1,11 @@
 import { Stone, formatCurrency } from '@/constants/data';
+import { db } from '@/lib/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { doc, updateDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ImageViewerModal } from '../image-viewer-modal';
 
 interface StoneDetailsModalProps {
@@ -11,10 +15,51 @@ interface StoneDetailsModalProps {
 }
 
 export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, visible, onClose }) => {
+  const router = useRouter();
   if (!stone) return null;
 
   const [isLoading, setIsLoading] = useState(false);
   const [isViewerVisible, setIsViewerVisible] = useState(false);
+
+  const handleMarkAsSold = async () => {
+    if (!stone.id) return;
+
+    Alert.alert(
+      "Mark as Sold",
+      "Are you sure you want to mark this stone as Sold?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Yes, Mark Sold", 
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const stoneRef = doc(db, 'stones', stone.id!);
+              await updateDoc(stoneRef, {
+                status: 'Sold',
+                updatedAt: new Date().toISOString()
+              });
+              Alert.alert("Success", "Stone marked as sold");
+              onClose();
+            } catch (error) {
+              console.error(error);
+              Alert.alert("Error", "Failed to update status");
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    onClose();
+    router.push({
+      pathname: '/add-stone',
+      params: { stoneId: stone.id }
+    });
+  };
 
   const DetailRow = ({ label, value, valueStyle }: { label: string; value: string | number; valueStyle?: any }) => (
     <View style={styles.detailRow}>
@@ -146,10 +191,51 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
                 color: stone.profitLoss > 0 ? '#24F07D' : '#FF4D4F'
               }} />
             </View>
-            <TouchableOpacity style={styles.bookButton}>
-              <Text style={{ color: '#000', fontSize: 18, fontWeight: '600' }}>Download</Text>
-              <MaterialCommunityIcons name="download" size={20} color="#000" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
+            <View style={{ gap: 12, marginTop: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity 
+                  style={{ flex: 1 }}
+                  onPress={handleMarkAsSold}
+                >
+                  <LinearGradient
+                    colors={['#FF4D4F', '#fa0f0bff']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionButtonText}>Mark as Sold</Text>
+                    <MaterialCommunityIcons name="tag-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={{ flex: 1 }}
+                  onPress={handleEdit}
+                >
+                  <LinearGradient
+                    colors={['#0059ffff', '#3498db']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionButtonText}>Edit Stone</Text>
+                    <MaterialCommunityIcons name="pencil-outline" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={() => {/* Handle download logic if any */}}>
+                 <LinearGradient
+                    colors={['#24F07D', '#52c41a']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.bookButton}
+                  >
+                  <Text style={{ color: '#000', fontSize: 18, fontWeight: '600' }}>Download</Text>
+                  <MaterialCommunityIcons name="download" size={20} color="#000" style={{ marginLeft: 8 }} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -168,7 +254,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '80%',
+    maxHeight: '90%',
     flex: 1,
   },
   header: {
@@ -215,15 +301,24 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  bookButton: {
-    backgroundColor: '#24F07D',
+  bookButton: { // Removed background color as it is now in LinearGradient
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
-    marginBottom: 24,
+  },
+  actionButton: { // Removed background color as it is now in LinearGradient
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  actionButtonText: {
+    color: '#fff', 
+    fontSize: 16, 
+    fontWeight: '600'
   },
   receiptImage: {
     width: '100%',
