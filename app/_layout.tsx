@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 
+import BiometricAuth from '@/components/auth/BiometricAuth';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import '@/global.css';
 
@@ -75,26 +76,28 @@ function RootLayoutNav() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GluestackUIProvider mode="dark">
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          {/* Disable the default header globally. Individual screens can override this via their own options. */}
-            <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="modal"
-              options={{
-              presentation: 'transparentModal',
-              contentStyle: { height: '50%' },
-              }}
-            />
-            <Stack.Screen
-              name="screens/verify"
-              options={{
-              presentation: 'modal',
-              contentStyle: { height: '50%' },
-              }}
-            />
-            </Stack>
-        </ThemeProvider>
+        <BiometricAuth>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            {/* Disable the default header globally. Individual screens can override this via their own options. */}
+                <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                name="modal"
+                options={{
+                presentation: 'transparentModal',
+                contentStyle: { height: '50%' },
+                }}
+                />
+                <Stack.Screen
+                name="screens/verify"
+                options={{
+                presentation: 'modal',
+                contentStyle: { height: '50%' },
+                }}
+                />
+                </Stack>
+            </ThemeProvider>
+        </BiometricAuth>
       </GluestackUIProvider>
     </GestureHandlerRootView>
   );

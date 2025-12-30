@@ -146,7 +146,7 @@ export const StoneDetailsModal: React.FC<StoneDetailsModalProps> = ({ stone, vis
                   <Text
                     style={{
                       color: '#fff',
-                      fontSize: 14,
+                      fontSize: 14, 
                       fontWeight: 'bold',
                     }}
                   >
