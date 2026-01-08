@@ -268,6 +268,7 @@ export default function SettingsScreen() {
               icon={<Ionicons name="lock-closed-outline" size={20} color="#FDCB6E" />}
               iconBg="rgba(253, 203, 110, 0.15)"
               label="Change Password"
+              onPress={() => router.push('/change-password')}
             />
             <SettingItem 
               icon={<MaterialCommunityIcons name="shield-check-outline" size={20} color="#74B9FF" />}

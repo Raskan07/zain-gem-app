@@ -95,6 +95,7 @@ function RootLayoutNav() {
                 contentStyle: { height: '50%' },
                 }}
                 />
+                <Stack.Screen name="change-password" options={{ headerShown: false }} />
                 </Stack>
             </ThemeProvider>
         </BiometricAuth>

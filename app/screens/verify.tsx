@@ -13,7 +13,8 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 
-const CORRECT_OTP = '123456';
+import { verifyPasscode } from '@/lib/auth';
+
 const LENGTH = 6;
 
 export default function Verify() {
@@ -21,8 +22,9 @@ export default function Verify() {
   const [error, setError] = useState('');
   const inputRef = useRef<OTPInputRef>(null);
 
-  const handleComplete = (code: string) => {
-    if (code === CORRECT_OTP) {
+  const handleComplete = async (code: string) => {
+    const isValid = await verifyPasscode(code);
+    if (isValid) {
       // success -> go to index (tabs)
       // pass a query param so the tabs index knows verification just happened
       router.replace('/(tabs)?verified=1');

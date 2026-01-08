@@ -8,7 +8,8 @@ type Props = {
   onSuccess: () => void;
 };
 
-const CORRECT_OTP = '123456';
+import { verifyPasscode } from '@/lib/auth';
+
 const OTP_LENGTH = 6;
 
 export default function OTPBottomSheet({ isVisible, onClose, onSuccess }: Props) {
@@ -25,7 +26,7 @@ export default function OTPBottomSheet({ isVisible, onClose, onSuccess }: Props)
     }
   }, [isVisible]);
 
-  const handleOtpChange = (value: string, index: number) => {
+  const handleOtpChange = async (value: string, index: number) => {
     const newOtp = otp.split('');
     newOtp[index] = value;
     const updatedOtp = newOtp.join('');
@@ -39,7 +40,8 @@ export default function OTPBottomSheet({ isVisible, onClose, onSuccess }: Props)
 
     // Check if OTP is complete
     if (updatedOtp.length === OTP_LENGTH) {
-      if (updatedOtp === CORRECT_OTP) {
+      const isValid = await verifyPasscode(updatedOtp);
+      if (isValid) {
         onSuccess();
       } else {
         setError('Invalid code. Please try again.');
