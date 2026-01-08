@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,8 +15,22 @@ export default function SettingsScreen() {
   const [darkModeEnabled, setDarkModeEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
+  // Load initial settings
+  useEffect(() => {
+    (async () => {
+        const bioEnabled = await SecureStore.getItemAsync('biometrics_enabled');
+        setBiometricsEnabled(bioEnabled === 'true');
+    })();
+  }, []);
+
   const toggleNotifications = () => setNotificationsEnabled(previousState => !previousState);
-  const toggleBiometrics = () => setBiometricsEnabled(previousState => !previousState);
+  
+  const toggleBiometrics = async () => {
+      const newValue = !biometricsEnabled;
+      setBiometricsEnabled(newValue);
+      await SecureStore.setItemAsync('biometrics_enabled', String(newValue));
+  };
+
   const toggleDarkMode = () => setDarkModeEnabled(previousState => !previousState);
   const toggleEmail = () => setEmailNotifications(previousState => !previousState);
 

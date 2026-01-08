@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -16,7 +17,10 @@ export default function BiometricAuth({ children }: { children: React.ReactNode 
       const compatible = await LocalAuthentication.hasHardwareAsync();
       setIsBiometricSupported(compatible);
       
-      if (compatible) {
+      const enabled = await SecureStore.getItemAsync('biometrics_enabled');
+      const isEnabled = enabled === 'true';
+
+      if (compatible && isEnabled) {
         authenticate();
       } else {
         setIsAuthenticated(true); 
@@ -26,7 +30,7 @@ export default function BiometricAuth({ children }: { children: React.ReactNode 
 
   // Re-lock on app backgrounding
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
       if (
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active'
@@ -34,12 +38,14 @@ export default function BiometricAuth({ children }: { children: React.ReactNode 
          // App came to foreground
          const now = Date.now();
          const timeSinceLastAuth = now - lastSuccessAuth.current;
+         const enabled = await SecureStore.getItemAsync('biometrics_enabled');
+         const isEnabled = enabled === 'true';
 
          // Only lock if:
-         // 1. Biometrics are supported
+         // 1. Biometrics are supported AND ENABLED
          // 2. We are not currently authenticating (prompt open)
          // 3. We didn't JUST authenticate successfully (grace period of 2 seconds)
-         if (isBiometricSupported && !isAuthenticating.current && timeSinceLastAuth > 2000) {
+         if (isBiometricSupported && isEnabled && !isAuthenticating.current && timeSinceLastAuth > 2000) {
              console.log("App foregrounded, locking...");
              setIsAuthenticated(false);
              authenticate();
